@@ -1,0 +1,85 @@
+state_space = 4 # number of states
+action_space = 2 # number of possible actions
+
+def Qtable(state_space,action_space,bin_size):
+    
+    bins = [np.linspace(-4.8,4.8,bin_size),  # bin = number of possible state per category
+            np.linspace(-4,4,bin_size),
+            np.linspace(-0.418,0.418,bin_size),
+            np.linspace(-4,4,bin_size)] # observation space
+    
+    q_table = np.random.uniform(low=-1,high=1,size=([bin_size] * state_space + [action_space])) # 5d array
+    return q_table, bins
+
+def Discrete(state, bins):
+    index = []
+    for i in range(len(state)): index.append(np.digitize(state[i],bins[i]) - 1) # digitize into diff "steps"
+    return tuple(index)
+
+tqt, tb = Qtable(4,2,30)
+
+def Q_learning(q_table, bins, episodes = 50000, gamma = 0.95, lr = 0.1, timestep = 100, epsilon = 0.2):
+    
+    rewards = 0
+    steps = 0
+    for episode in range(1,episodes+1):
+        steps += 1 
+        # env.reset() => initial observation
+        current_state = Discrete(env.reset(),bins)
+      
+        score = 0
+        done = False
+        while not done: 
+         #if episode%timestep==0: env.render()
+         if np.random.uniform(0,1) < epsilon:
+                action = env.action_space.sample()
+         else:
+                action = np.argmax(q_table[current_state])
+         observation, reward, done, info = env.step(action)
+         next_state = Discrete(observation,bins)
+         score+=reward
+          
+         if not done:
+                max_future_q = np.max(q_table[next_state])
+                current_q = q_table[current_state+(action,)]
+                new_q = (1-lr)*current_q + lr*(reward + gamma*max_future_q)
+                q_table[current_state+(action,)] = new_q # access table using tuple of 5 items
+         current_state = next_state
+            
+        # End of the loop update
+        else:
+            rewards += score
+            #if score > 195 and steps >= 100: print('Solved')
+        #if episode % timestep == 0: print(reward / timestep)
+Q_learning(tqt,tb) # training
+done = False
+env = RecordVideo(gym.make("CartPole-v1",new_step_api=True), "./video")
+state = env.reset()
+current_state = Discrete(state,tb)
+cum_score = 0
+while not done: # testing
+         env.render()
+         if np.random.uniform(0,1) < 0.2:
+                action = env.action_space.sample()
+         else:
+                action = np.argmax(tqt[current_state])
+         observation, reward, done, info = env.step(action)
+         print(info)
+         next_state = Discrete(observation,tb)
+         #score+=reward
+          
+         if not done:
+                max_future_q = np.max(tqt[next_state])
+                current_q = tqt[current_state+(action,)]
+                new_q = (1-0.01)*current_q + 0.01*(reward + 0.99*max_future_q)
+                tqt[current_state+(action,)] = new_q
+                cum_score += reward
+         else:
+                print(info)
+         current_state = next_state
+            
+        # End of the loop update
+
+print(cum_score)
+env.close()
+show_video()
